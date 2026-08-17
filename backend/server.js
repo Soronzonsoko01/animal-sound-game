@@ -28,7 +28,13 @@ const ANIMALS = [
   { id: 'owl', name: 'Owl', emoji: '🦉' },
   { id: 'monkey', name: 'Monkey', emoji: '🐵' },
   { id: 'lion', name: 'Lion', emoji: '🦁' },
-  { id: 'horse', name: 'Horse', emoji: '🐴' }
+  { id: 'horse', name: 'Horse', emoji: '🐴' },
+  { id: 'wolf', name: 'Wolf', emoji: '🐺' },
+  { id: 'mouse', name: 'Mouse', emoji: '🐭' },
+  { id: 'snake', name: 'Snake', emoji: '🐍' },
+  { id: 'elephant', name: 'Elephant', emoji: '🐘' },
+  { id: 'bee', name: 'Bee', emoji: '🐝' },
+  { id: 'dolphin', name: 'Dolphin', emoji: '🐬' }
 ];
 
 // Room State
