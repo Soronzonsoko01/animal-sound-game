@@ -13,6 +13,7 @@ function App() {
   const [roomId, setRoomId] = useState('');
   const [room, setRoom] = useState(null);
   const [error, setError] = useState('');
+  const [rounds, setRounds] = useState(2);
 
   // Recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -51,7 +52,7 @@ function App() {
   };
 
   const startGame = () => {
-    socket.emit('start_game', room.roomId);
+    socket.emit('start_game', { roomId: room.roomId, rounds });
   };
 
   const startRecording = async () => {
@@ -174,7 +175,20 @@ function App() {
             </div>
             {room.players.length > 1 ? (
               room.players[0].id === socket.id ? (
-                <button className="btn" onClick={startGame}>Start Game</button>
+                <div style={{ marginTop: '20px' }}>
+                  <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <label style={{ fontWeight: 'bold' }}>Rounds per player: </label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="10" 
+                      value={rounds} 
+                      onChange={(e) => setRounds(Number(e.target.value))} 
+                      style={{ width: '60px', padding: '8px', margin: 0, textAlign: 'center' }} 
+                    />
+                  </div>
+                  <button className="btn" onClick={startGame}>Start Game</button>
+                </div>
               ) : (
                 <p>Waiting for host to start...</p>
               )

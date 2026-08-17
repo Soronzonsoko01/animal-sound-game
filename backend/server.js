@@ -92,13 +92,16 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('room_update', room);
   });
 
-  socket.on('start_game', (roomId) => {
+  socket.on('start_game', (data) => {
+    const roomId = typeof data === 'string' ? data : data.roomId;
+    const rounds = data.rounds || 2;
+    
     const room = rooms.get(roomId);
     if (room && room.players.length > 1) {
       room.players.forEach(p => p.score = 0); // Reset scores
       room.totalTurnsTaken = 0;
       room.currentTurnIndex = 0;
-      room.maxTurns = room.players.length * 2; // Each player acts 2 times
+      room.maxTurns = room.players.length * rounds;
       startTurn(room);
     }
   });
