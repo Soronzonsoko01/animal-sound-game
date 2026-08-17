@@ -47,9 +47,10 @@ function generateRoomCode() {
   return code;
 }
 
-function getOptions(correctAnimal) {
+function getOptions(correctAnimal, deck) {
+  const sourceDeck = (deck && deck.length > 0) ? deck : ANIMALS;
   const options = [correctAnimal];
-  const others = ANIMALS.filter(a => a.id !== correctAnimal.id).sort(() => 0.5 - Math.random());
+  const others = sourceDeck.filter(a => a.id !== correctAnimal.id).sort(() => 0.5 - Math.random());
   options.push(...others.slice(0, 3));
   return options.sort(() => 0.5 - Math.random());
 }
@@ -69,7 +70,8 @@ io.on('connection', (socket) => {
       currentAnimal: null,
       currentAudio: null,
       options: [],
-      guesses: []
+      guesses: [],
+      customDeck: []
     };
     rooms.set(roomId, room);
     socket.join(roomId);
@@ -95,9 +97,15 @@ io.on('connection', (socket) => {
   socket.on('start_game', (data) => {
     const roomId = typeof data === 'string' ? data : data.roomId;
     const rounds = data.rounds || 2;
+    const customDeck = data.customDeck || [];
     
     const room = rooms.get(roomId);
     if (room && room.players.length > 1) {
+      if (customDeck.length >= 4) {
+        room.customDeck = customDeck;
+      } else {
+        room.customDeck = []; // fallback to default
+      }
       room.players.forEach(p => p.score = 0); // Reset scores
       room.totalTurnsTaken = 0;
       room.currentTurnIndex = 0;
@@ -172,9 +180,10 @@ io.on('connection', (socket) => {
 
 function startTurn(room) {
   room.phase = 'RECORDING';
-  room.currentAnimal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
+  const sourceDeck = (room.customDeck && room.customDeck.length > 0) ? room.customDeck : ANIMALS;
+  room.currentAnimal = sourceDeck[Math.floor(Math.random() * sourceDeck.length)];
   room.currentAudio = null;
-  room.options = getOptions(room.currentAnimal);
+  room.options = getOptions(room.currentAnimal, sourceDeck);
   room.guesses = [];
   io.to(room.roomId).emit('room_update', room);
 }

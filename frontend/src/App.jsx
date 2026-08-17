@@ -7,6 +7,41 @@ const SOCKET_URL = (window.location.hostname === 'localhost' || window.location.
   ? `http://${window.location.hostname}:3001`
   : '/';
 
+const compressImage = (file) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400;
+        const MAX_HEIGHT = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 function App() {
   const [socket, setSocket] = useState(null);
   const [playerName, setPlayerName] = useState('');
@@ -14,6 +49,7 @@ function App() {
   const [room, setRoom] = useState(null);
   const [error, setError] = useState('');
   const [rounds, setRounds] = useState(2);
+  const [customDeck, setCustomDeck] = useState([]);
 
   // Recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -52,7 +88,29 @@ function App() {
   };
 
   const startGame = () => {
-    socket.emit('start_game', { roomId: room.roomId, rounds });
+    socket.emit('start_game', { roomId: room.roomId, rounds, customDeck });
+  };
+
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    const newItems = await Promise.all(files.map(async (file, index) => {
+      const base64 = await compressImage(file);
+      return {
+        id: `custom_${Date.now()}_${index}`,
+        name: file.name.split('.')[0], // Default name
+        emoji: '🖼️', // Fallback emoji
+        image: base64
+      };
+    }));
+    setCustomDeck([...customDeck, ...newItems]);
+  };
+
+  const updateCustomName = (id, newName) => {
+    setCustomDeck(customDeck.map(item => item.id === id ? { ...item, name: newName } : item));
+  };
+  
+  const removeCustomItem = (id) => {
+    setCustomDeck(customDeck.filter(item => item.id !== id));
   };
 
   const startRecording = async () => {
@@ -116,6 +174,13 @@ function App() {
       <li></li><li></li><li></li><li></li><li></li>
     </ul>
   );
+
+  const renderAnimalDisplay = (animal) => {
+    if (animal.image) {
+      return <img src={animal.image} alt={animal.name} style={{ width: '150px', height: '150px', objectFit: 'cover', borderRadius: '15px', margin: '10px auto', display: 'block', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }} />;
+    }
+    return <div className="animal-emoji">{animal.emoji}</div>;
+  };
 
   if (!room) {
     return (
@@ -187,7 +252,25 @@ function App() {
                       style={{ width: '60px', padding: '8px', margin: 0, textAlign: 'center' }} 
                     />
                   </div>
-                  <button className="btn" onClick={startGame}>Start Game</button>
+                  <div style={{ marginBottom: '20px', background: 'rgba(255,255,255,0.5)', padding: '15px', borderRadius: '10px' }}>
+                    <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem' }}>🖼️ Custom Images (Optional)</h3>
+                    <p style={{ fontSize: '0.85rem', margin: '0 0 10px 0', color: '#444' }}>Upload at least 4 images to play with your own pictures!</p>
+                    <input type="file" multiple accept="image/*" onChange={handleImageUpload} style={{ marginBottom: '10px', fontSize: '0.9rem', maxWidth: '100%' }} />
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', maxHeight: '200px', overflowY: 'auto' }}>
+                      {customDeck.map(item => (
+                        <div key={item.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#fff', padding: '8px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                          <img src={item.image} alt={item.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '5px' }} />
+                          <input type="text" value={item.name} onChange={e => updateCustomName(item.id, e.target.value)} style={{ width: '100%', marginTop: '5px', padding: '4px', fontSize: '0.8rem', textAlign: 'center', boxSizing: 'border-box' }} />
+                          <button onClick={() => removeCustomItem(item.id)} style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', marginTop: '4px' }}>Remove</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button className="btn" onClick={startGame} disabled={customDeck.length > 0 && customDeck.length < 4}>
+                    {customDeck.length > 0 && customDeck.length < 4 ? 'Need 4+ Images' : 'Start Game'}
+                  </button>
                 </div>
               ) : (
                 <p>Waiting for host to start...</p>
@@ -204,7 +287,7 @@ function App() {
               <div>
                 <h2>It's your turn, {myPlayer.name}!</h2>
                 <p>Make a sound like this animal:</p>
-                <div className="animal-emoji">{room.currentAnimal.emoji}</div>
+                {renderAnimalDisplay(room.currentAnimal)}
                 <div className="record-btn-container">
                   <button 
                     className={`record-btn ${isRecording ? 'recording' : ''}`}
@@ -260,8 +343,12 @@ function App() {
                   <div className="options-grid">
                     {room.options.map((opt, i) => (
                       <button key={i} className="option-btn" onClick={() => submitGuess(opt.id)}>
-                        <span style={{fontSize: '2rem'}}>{opt.emoji}</span>
-                        <span style={{fontSize: '1rem', marginTop: '5px'}}>{opt.name}</span>
+                        {opt.image ? (
+                          <img src={opt.image} alt={opt.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', marginBottom: '5px', display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
+                        ) : (
+                          <span style={{fontSize: '2rem', display: 'block'}}>{opt.emoji}</span>
+                        )}
+                        <span style={{fontSize: '1rem'}}>{opt.name}</span>
                       </button>
                     ))}
                   </div>
@@ -274,7 +361,7 @@ function App() {
         {room.phase === 'REVEAL' && (
           <div>
             <h2>It was a {room.currentAnimal.name}!</h2>
-            <div className="animal-emoji">{room.currentAnimal.emoji}</div>
+            {renderAnimalDisplay(room.currentAnimal)}
             
             <div className="players-list">
               <h3 style={{marginTop: 0, marginBottom: '10px'}}>Results:</h3>
