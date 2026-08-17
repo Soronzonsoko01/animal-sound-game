@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { useWebRTC } from './useWebRTC';
 import './index.css';
 
 // Use the current hostname but port 3001 in development (allows LAN testing)
@@ -50,6 +51,10 @@ function App() {
   const [error, setError] = useState('');
   const [rounds, setRounds] = useState(2);
   const [customDeck, setCustomDeck] = useState([]);
+  
+  // WebRTC Voice Chat
+  const { localStream, remoteStreams, initLocalStream, disconnectAll } = useWebRTC(socket);
+  const [isMicMuted, setIsMicMuted] = useState(false);
 
   // Recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -70,9 +75,10 @@ function App() {
 
   const createRoom = () => {
     if (!playerName) return setError('Please enter your name!');
-    socket.emit('create_room', { playerName }, (res) => {
+    socket.emit('create_room', { playerName }, async (res) => {
       if (res.success) {
         setRoomId(res.roomId);
+        await initLocalStream();
       }
     });
   };
@@ -80,9 +86,11 @@ function App() {
   const joinRoom = () => {
     if (!playerName) return setError('Please enter your name!');
     if (!roomId) return setError('Please enter a room code!');
-    socket.emit('join_room', { roomId: roomId.toUpperCase(), playerName }, (res) => {
+    socket.emit('join_room', { roomId: roomId.toUpperCase(), playerName }, async (res) => {
       if (!res.success) {
         setError(res.error);
+      } else {
+        await initLocalStream();
       }
     });
   };
@@ -167,6 +175,22 @@ function App() {
     socket.emit('return_to_lobby', room.roomId);
   };
 
+  const isMyTurn = room?.players[room.currentTurnIndex]?.id === socket?.id;
+
+  // WebRTC temporary mute logic
+  useEffect(() => {
+    if (!localStream) return;
+    const isRecordingPhaseAndMyTurn = room?.phase === 'RECORDING' && isMyTurn;
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (audioTrack) {
+      if (isRecordingPhaseAndMyTurn) {
+        audioTrack.enabled = false;
+      } else {
+        audioTrack.enabled = !isMicMuted;
+      }
+    }
+  }, [room?.phase, isMyTurn, localStream, isMicMuted]);
+
   // Render Background Bubbles
   const renderBackground = () => (
     <ul className="bg-bubbles">
@@ -215,15 +239,24 @@ function App() {
   }
 
   const myPlayer = room.players.find(p => p.id === socket?.id);
-  const isMyTurn = room.players[room.currentTurnIndex]?.id === socket?.id;
   const currentTurnPlayerName = room.players[room.currentTurnIndex]?.name;
 
   return (
     <>
+      {Object.entries(remoteStreams).map(([userId, stream]) => (
+        <audio key={userId} autoPlay ref={el => { if (el) el.srcObject = stream }} />
+      ))}
       {renderBackground()}
       <div className="app-container">
-        <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '20px'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center'}}>
           <div style={{fontWeight: 'bold', color: 'var(--secondary-color)'}}>Room: {room.roomId}</div>
+          <button 
+            className="btn secondary" 
+            style={{ padding: '5px 10px', fontSize: '0.8rem', margin: 0 }}
+            onClick={() => setIsMicMuted(!isMicMuted)}
+          >
+            {isMicMuted ? '🔇 Muted' : '🔊 Mic On'}
+          </button>
           <div style={{fontWeight: 'bold'}}>Score: {myPlayer?.score} ⭐</div>
         </div>
 

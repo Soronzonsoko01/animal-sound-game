@@ -77,6 +77,7 @@ io.on('connection', (socket) => {
     socket.join(roomId);
     callback({ success: true, roomId });
     io.to(roomId).emit('room_update', room);
+    socket.to(roomId).emit('user_joined_voice', socket.id);
   });
 
   socket.on('join_room', (data, callback) => {
@@ -92,6 +93,7 @@ io.on('connection', (socket) => {
     socket.join(roomId);
     callback({ success: true, roomId });
     io.to(roomId).emit('room_update', room);
+    socket.to(roomId).emit('user_joined_voice', socket.id);
   });
 
   socket.on('start_game', (data) => {
@@ -161,6 +163,28 @@ io.on('connection', (socket) => {
     }
   });
 
+  // WebRTC Signaling
+  socket.on('webrtc_offer', (data) => {
+    io.to(data.target).emit('webrtc_offer', {
+      sender: socket.id,
+      offer: data.offer
+    });
+  });
+
+  socket.on('webrtc_answer', (data) => {
+    io.to(data.target).emit('webrtc_answer', {
+      sender: socket.id,
+      answer: data.answer
+    });
+  });
+
+  socket.on('webrtc_ice_candidate', (data) => {
+    io.to(data.target).emit('webrtc_ice_candidate', {
+      sender: socket.id,
+      candidate: data.candidate
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
     for (const [roomId, room] of rooms.entries()) {
@@ -171,6 +195,7 @@ io.on('connection', (socket) => {
           rooms.delete(roomId);
         } else {
           io.to(roomId).emit('room_update', room);
+          io.to(roomId).emit('user_left_voice', socket.id);
         }
         break;
       }
