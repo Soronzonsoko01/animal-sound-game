@@ -62,8 +62,10 @@ io.on('connection', (socket) => {
     const room = {
       roomId,
       players: [{ id: socket.id, name: data.playerName, score: 0 }],
-      phase: 'LOBBY',
+      phase: 'LOBBY', // LOBBY, RECORDING, GUESSING, REVEAL, GAME_OVER
       currentTurnIndex: 0,
+      totalTurnsTaken: 0,
+      maxTurns: 0,
       currentAnimal: null,
       currentAudio: null,
       options: [],
@@ -93,6 +95,10 @@ io.on('connection', (socket) => {
   socket.on('start_game', (roomId) => {
     const room = rooms.get(roomId);
     if (room && room.players.length > 1) {
+      room.players.forEach(p => p.score = 0); // Reset scores
+      room.totalTurnsTaken = 0;
+      room.currentTurnIndex = 0;
+      room.maxTurns = room.players.length * 2; // Each player acts 2 times
       startTurn(room);
     }
   });
@@ -125,8 +131,22 @@ io.on('connection', (socket) => {
   socket.on('next_turn', (roomId) => {
     const room = rooms.get(roomId);
     if (room && room.phase === 'REVEAL') {
-      room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
-      startTurn(room);
+      room.totalTurnsTaken++;
+      if (room.totalTurnsTaken >= room.maxTurns) {
+        room.phase = 'GAME_OVER';
+        io.to(roomId).emit('room_update', room);
+      } else {
+        room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
+        startTurn(room);
+      }
+    }
+  });
+  
+  socket.on('return_to_lobby', (roomId) => {
+    const room = rooms.get(roomId);
+    if (room && room.phase === 'GAME_OVER') {
+      room.phase = 'LOBBY';
+      io.to(roomId).emit('room_update', room);
     }
   });
 

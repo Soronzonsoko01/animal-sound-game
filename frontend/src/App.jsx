@@ -104,6 +104,10 @@ function App() {
     socket.emit('next_turn', room.roomId);
   };
 
+  const returnToLobby = () => {
+    socket.emit('return_to_lobby', room.roomId);
+  };
+
   // Render Background Bubbles
   const renderBackground = () => (
     <ul className="bg-bubbles">
@@ -276,6 +280,28 @@ function App() {
               <button className="btn" onClick={nextTurn}>Next Turn</button>
             ) : (
               <p>Waiting for host to continue...</p>
+            )}
+          </div>
+        )}
+
+        {room.phase === 'GAME_OVER' && (
+          <div>
+            <h2>Game Over! 🏆</h2>
+            <p>Final Scores:</p>
+            
+            <div className="players-list">
+              {room.players.sort((a,b) => b.score - a.score).map((p, i) => (
+                <div key={p.id} className="player-item">
+                  <span>{i === 0 ? '🥇 ' : ''}{p.name}</span>
+                  <span>{p.score} ⭐</span>
+                </div>
+              ))}
+            </div>
+
+            {room.players[0].id === socket.id ? (
+              <button className="btn" onClick={returnToLobby}>Play Again</button>
+            ) : (
+              <p>Waiting for host to start a new game...</p>
             )}
           </div>
         )}
