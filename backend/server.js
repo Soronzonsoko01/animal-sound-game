@@ -172,7 +172,7 @@ function revealPhase(room) {
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // Anything that doesn't match the API, send back index.html
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
