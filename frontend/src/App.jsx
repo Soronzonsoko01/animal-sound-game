@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import './index.css';
 
-// Use localhost:3001 in development, but use the same host ('/') in production
-const SOCKET_URL = window.location.hostname === 'localhost' && window.location.port !== '3001'
-  ? 'http://localhost:3001'
+// Use the current hostname but port 3001 in development (allows LAN testing)
+const SOCKET_URL = (window.location.hostname === 'localhost' || window.location.port === '5173')
+  ? `http://${window.location.hostname}:3001`
   : '/';
 
 function App() {
