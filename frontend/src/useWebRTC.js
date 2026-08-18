@@ -8,7 +8,13 @@ export const useWebRTC = (socket) => {
 
   const initLocalStream = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          noiseSuppression: true,
+          echoCancellation: true,
+          autoGainControl: true
+        } 
+      });
       setLocalStream(stream);
       localStreamRef.current = stream;
       return stream;
